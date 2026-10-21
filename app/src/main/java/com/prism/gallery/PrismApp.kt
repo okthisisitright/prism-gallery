@@ -35,6 +35,7 @@ import com.prism.gallery.feature.photos.PhotoGrid
 import com.prism.gallery.feature.settings.SettingsScreen
 import com.prism.gallery.feature.vault.VaultScreen
 import com.prism.gallery.feature.viewer.MediaViewer
+import kotlinx.coroutines.delay
 
 private data class ViewerSession(val items: List<MediaItem>, val initial: Int)
 private data class FolderSession(val title: String, val filter: LibraryFilter)
@@ -62,6 +63,12 @@ private data class FolderSession(val title: String, val filter: LibraryFilter)
     // FLAG_SECURE is applied before private UI is committed; it remains set for vault dialogs and picker.
     DisposableEffect(vaultOpen) { activity.secure(vaultOpen); onDispose { if (vaultOpen) activity.secure(false) } }
     LaunchedEffect(vaultUnlocked, pendingImport) { if (vaultUnlocked && pendingImport != null) { val items = pendingImport!!; pendingImport = null; vm.importToVault(items) } }
+    LaunchedEffect(vaultUnlocked, prefs.vaultTimeout) {
+        if (vaultUnlocked) while (true) {
+            delay(1000)
+            if (android.os.SystemClock.elapsedRealtime() - vm.app.vault.lastTouch >= prefs.vaultTimeout * 1000L) { vm.app.vault.lock(); break }
+        }
+    }
     fun closeVault() { vm.app.vault.lock(); pendingImport = null; vaultPicker = false; vaultOpen = false }
     BackHandler(enabled = viewer != null || vaultOpen || folder != null || selected.isNotEmpty()) {
         when { viewer != null -> viewer = null; vaultPicker -> { vaultPicker = false; pickerKeys = emptySet() }; vaultOpen -> closeVault(); selected.isNotEmpty() -> selected = emptyList(); else -> folder = null }

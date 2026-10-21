@@ -31,10 +31,11 @@ class VaultRepository(private val context: Context, private val dao: PrismDao) {
     private var master: ByteArray? = null
     private val sensitiveBitmaps = mutableListOf<java.lang.ref.WeakReference<android.graphics.Bitmap>>()
     @Synchronized fun protectBitmap(bitmap: android.graphics.Bitmap): android.graphics.Bitmap {
-        if (!_unlocked.value) { bitmap.eraseColor(android.graphics.Color.TRANSPARENT); error("Vault locked during decode") }
+        val owned = if (bitmap.isMutable) bitmap else bitmap.copy(android.graphics.Bitmap.Config.ARGB_8888, true).also { bitmap.recycle() }
+        if (!_unlocked.value) { owned.eraseColor(android.graphics.Color.TRANSPARENT); error("Vault locked during decode") }
         sensitiveBitmaps.removeAll { it.get() == null }
-        sensitiveBitmaps.add(java.lang.ref.WeakReference(bitmap))
-        return bitmap
+        sensitiveBitmaps.add(java.lang.ref.WeakReference(owned))
+        return owned
     }
     @Volatile private var foreground = true
     @Synchronized fun setForeground(active: Boolean) { foreground = active; if (!active) lock() }

@@ -84,7 +84,6 @@ private suspend fun privateBitmap(vault: VaultRepository, id: String, target: In
     var current by remember { mutableStateOf<VaultRecord?>(null) }; var selected by remember { mutableStateOf(setOf<String>()) }; var delete by remember { mutableStateOf(false) }; var export by remember { mutableStateOf(false) }; var info by remember { mutableStateOf(false) }
     LaunchedEffect(unlocked, prefs.vaultTimeout) {
         if (!unlocked) { current = null; selected = emptySet() }
-        else while (true) { delay(1000); if (android.os.SystemClock.elapsedRealtime() - vm.app.vault.lastTouch >= prefs.vaultTimeout * 1000L) { vm.app.vault.lock(); break } }
     }
     Column(Modifier.fillMaxSize()) {
         Row(Modifier.fillMaxWidth().padding(horizontal = 12.dp, vertical = 8.dp), verticalAlignment = Alignment.CenterVertically) { IconButton(onBack) { Icon(Icons.Outlined.ArrowBack, "Back") }; Text("Private Vault", Modifier.weight(1f), style = MaterialTheme.typography.titleLarge); if (unlocked) { IconButton({ vm.app.vault.lock() }) { Icon(Icons.Outlined.Lock, "Lock now") } } }
