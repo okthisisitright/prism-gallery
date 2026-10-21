@@ -1,0 +1,31 @@
+# Private Vault security design
+
+This implementation has automated tests but has not had an independent security audit. It protects app-private encrypted image files; it is not protection against a compromised OS, root access, forensic memory capture, or copies previously made by other apps.
+
+## Key hierarchy and credentials
+
+A random 256-bit vault master key encrypts each object using platform AES/GCM/NoPadding with a fresh random 96-bit nonce and 128-bit tag. An object envelope begins with `PRSM` and format version 1, followed by nonce and ciphertext/tag. The format/version and UUID object name are authenticated additional data. Filenames, MIME types, length and image bytes all live **inside** the encrypted payload. The ordinary Room vault table contains only random object ID, import time and a conservative source-may-exist flag.
+
+The passphrase (minimum 8 characters) derives a wrapping key with PBKDF2-HMAC-SHA256, 600,000 iterations, random 32-byte salt and 256-bit output. This wraps the master key with authenticated encryption. A second, non-exportable Android Keystore AES-256-GCM key wraps that envelope. The credential file is atomic and stored under `noBackupFilesDir`. Neither a hardcoded key nor plaintext key is persisted. Derived/master byte arrays are cleared when their scope ends; platform crypto, the runtime and graphics driver can retain implementation-managed copies. Passphrase text necessarily exists briefly in UI memory and is not saveable state, copied to the clipboard or logged.
+
+After five failures, persisted retry delays start at 30 seconds and increase to 32 minutes. This is UI/device-local throttling, not a defense against a compromised app process. The passphrase KDF remains essential; choose a strong unique passphrase, not a short numeric code.
+
+Optional strong biometric unlock uses a **separate per-use authenticated Keystore AES key and BiometricPrompt CryptoObject**, encrypting a separate master-key envelope. Enrollment only occurs from an unlocked vault. Passphrase unlock remains available if biometric enrollment changes invalidate this key. Re-enrollment replaces the biometric key. Device lock-screen removal can invalidate authenticated biometric keys; device-specific Keystore reset/loss can also invalidate the device wrapping key. In that case neither credentials nor biometrics can recover the vault. No system prompt alone is treated as encryption.
+
+There is no recovery service, portable backup, reset-to-access path or password change flow. Forgetting the passphrase without working biometric access, clearing data, reinstalling, Keystore invalidation/loss, or losing the device can permanently destroy access. Keep the passphrase. Do not uninstall an app containing the only copies.
+
+## Import and crash safety
+
+Only images with a declared size of 1 byte through 32 MiB are accepted. Video import is disabled; ordinary gallery videos play normally. Source input is bounded again while reading. Stream encryption writes an app-private `.pending` file, flushes and fsyncs it. A full authenticated decrypt and SHA-256 comparison verify the original bytes and length. Cancellation and unlock-session identity are checked before finalization. The temporary file is renamed in the same private directory, the directory fsynced, and a Room row committed. Write, verification and database failures clean up the pending/new file; they never invoke source removal. Startup removes interrupted pending files and recovers finalized files with missing rows, preserving a copy across interruption between rename and database commit.
+
+Only after a successful import does the UI offer **Keep originals** or a separate Android-compliant **Remove originals** request. Android-confirmed permanent deletion clears the source warning. Cancellation, errors, process death during confirmation, and unknown results leave the warning on. On older Android, remove sources one at a time. Even a confirmed deletion cannot prove that cloud, messaging, trash, other folders, or external copies do not exist. Ordinary files are never silently erased by encryption.
+
+## Decoding, lifecycle and export
+
+No plaintext vault file or thumbnail is written to disk or sent to Coil/MediaStore. Private images are authenticated in memory, their byte arrays cleared after decoding, and images downsampled. At most two private decode jobs run at a time. Private bitmap surfaces are cleared on disposal. There is no general decrypted image cache. Android may retain renderer/runtime-managed memory; erasure of all physical memory is not guaranteed. Encoded-image bombs and platform decoder flaws are residual platform risks; memory limits reduce ordinary exposure, not a sandbox for malicious decoders.
+
+The vault is locked initially and on app stop, screen-off, manual lock and configured idle timeout (30s, 1m or 5m). Lock clears the app's master array and invalidates the session. Unlock completion is rejected after session/background changes. FLAG_SECURE covers the vault, import picker and vault dialogs, blocking ordinary screenshots/recording/recents previews where Android supports it. Biometrics require foreground lifecycle state. There is no exported provider, private content URI, temporary share cache, private notification or private search index.
+
+Explicit **Restore public copy** requires a warning/confirmation and writes through pending MediaStore image insertion on Android 10+, deleting failed partial output. It keeps the encrypted copy and marks that an external copy exists. Public exports are no longer private and may be backed up/read by other apps. Direct sharing and Android 8/9 vault export are disabled. An export authorized before app backgrounding may finish while the app is stopping; it is an explicit public operation. No video decryption or temporary plaintext playback pipeline ships in this release.
+
+Android Auto Backup and device-transfer extraction are disabled for all app data. App-private encrypted files are in no-backup storage. No INTERNET permission, accounts, telemetry, ads or network SDK are used. User-invoked external sharing/browser apps have their own behavior. Secure deletion of flash storage and third-party copies cannot be guaranteed.
