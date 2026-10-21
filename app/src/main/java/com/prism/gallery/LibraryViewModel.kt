@@ -1,5 +1,7 @@
 package com.prism.gallery
 
+import android.app.Application
+
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
 import androidx.room.withTransaction
@@ -11,7 +13,8 @@ import kotlinx.coroutines.channels.Channel
 import kotlinx.coroutines.flow.*
 
 data class ImportSummary(val pairs: List<Pair<VaultRecord, MediaItem>>, val failures: List<String>)
-class LibraryViewModel(val app: PrismApplication) : AndroidViewModel(app) {
+class LibraryViewModel(application: Application) : AndroidViewModel(application) {
+    val app = application as PrismApplication
     val dao = app.database.dao()
     val media = MutableStateFlow<List<MediaItem>>(emptyList())
     val loading = MutableStateFlow(false)
