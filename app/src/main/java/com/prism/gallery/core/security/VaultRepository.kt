@@ -29,6 +29,13 @@ class VaultRepository(private val context: Context, private val dao: PrismDao) {
     private val throttle = context.getSharedPreferences("vault_throttle", Context.MODE_PRIVATE)
     private val mutex = Mutex()
     private var master: ByteArray? = null
+    private val sensitiveBitmaps = mutableListOf<java.lang.ref.WeakReference<android.graphics.Bitmap>>()
+    @Synchronized fun protectBitmap(bitmap: android.graphics.Bitmap): android.graphics.Bitmap {
+        if (!_unlocked.value) { bitmap.eraseColor(android.graphics.Color.TRANSPARENT); error("Vault locked during decode") }
+        sensitiveBitmaps.removeAll { it.get() == null }
+        sensitiveBitmaps.add(java.lang.ref.WeakReference(bitmap))
+        return bitmap
+    }
     @Volatile private var foreground = true
     @Synchronized fun setForeground(active: Boolean) { foreground = active; if (!active) lock() }
     @Volatile private var epoch = 0L
@@ -39,7 +46,11 @@ class VaultRepository(private val context: Context, private val dao: PrismDao) {
     val unlocked = _unlocked.asStateFlow()
     val configured get() = config.baseFile.exists()
     val biometricConfigured get() = configured && runCatching { readConfig().has("bio") }.getOrDefault(false)
-    @Synchronized fun lock() { master?.fill(0); master = null; epoch++; _unlocked.value = false }
+    @Synchronized fun lock() {
+        master?.fill(0); master = null; epoch++; _unlocked.value = false
+        sensitiveBitmaps.forEach { reference -> reference.get()?.let { if (!it.isRecycled) it.eraseColor(android.graphics.Color.TRANSPARENT) } }
+        sensitiveBitmaps.clear()
+    }
     @Synchronized private fun session(): Pair<ByteArray, Long> = (master?.copyOf() ?: error("Vault is locked")) to epoch
     @Synchronized private fun accept(key: ByteArray) { if (!foreground) { key.fill(0); error("Return to Prism and unlock again") }; master?.fill(0); master = key; epoch++; _unlocked.value = true }
     private fun readConfig() = JSONObject(config.openRead().bufferedReader().use { it.readText() })

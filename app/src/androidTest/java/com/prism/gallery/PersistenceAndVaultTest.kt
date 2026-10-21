@@ -49,7 +49,9 @@ class PersistenceAndVaultTest {
         val record = vault.import(item)
         assertTrue(source.exists()); assertTrue(record.sourceMayExist); assertEquals(1, db.dao().vault().first().size)
         val image = vault.image(record.id); assertArrayEquals(source.readBytes(), image.bytes); image.bytes.fill(0)
-        vault.lock(); assertFalse(vault.unlocked.value)
+        val sensitive = Bitmap.createBitmap(2, 2, Bitmap.Config.ARGB_8888).apply { eraseColor(android.graphics.Color.RED) }
+        vault.protectBitmap(sensitive)
+        vault.lock(); assertFalse(vault.unlocked.value); assertEquals(android.graphics.Color.TRANSPARENT, sensitive.getPixel(0, 0)); sensitive.recycle()
         try { vault.image(record.id); fail("Locked vault returned plaintext") } catch (_: IllegalStateException) { }
         try { vault.unlock("wrong passphrase".toCharArray()); fail("Wrong passphrase unlocked") } catch (_: IllegalArgumentException) { }
         vault.unlock("a strong test passphrase".toCharArray()); assertTrue(vault.unlocked.value)

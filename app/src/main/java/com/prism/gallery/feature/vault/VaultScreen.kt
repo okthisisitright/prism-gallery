@@ -50,7 +50,7 @@ private suspend fun privateBitmap(vault: VaultRepository, id: String, target: In
             ExifInterface.ORIENTATION_ROTATE_270 -> setRotate(-90f)
         } }
         val bitmap = if (!matrix.isIdentity) Bitmap.createBitmap(decoded, 0, 0, decoded.width, decoded.height, matrix, true).also { if (it !== decoded) decoded.recycle() } else decoded
-        image.name to bitmap
+        image.name to vault.protectBitmap(bitmap)
     } finally { image.bytes.fill(0) }
 } }
 
