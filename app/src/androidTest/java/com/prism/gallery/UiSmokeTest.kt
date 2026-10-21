@@ -33,8 +33,14 @@ class UiSmokeTest {
             runBlocking { app.settings.string("theme", "Dark") }
             device.waitForIdle(); screenshot("albums-dark")
             // Scroll the real Albums view to its secured destination.
-            device.swipe(device.displayWidth / 2, device.displayHeight * 3 / 4, device.displayWidth / 2, device.displayHeight / 4, 30)
-            val vault = device.wait(Until.findObject(By.text("Private Vault")), 15_000)
+            for (attempt in 0 until 6) {
+                if (device.hasObject(By.textContains("Private Vault"))) break
+                val scroll = device.findObject(By.scrollable(true))
+                if (scroll != null) scroll.scroll(Direction.DOWN, .85f)
+                else device.swipe(device.displayWidth / 2, device.displayHeight * 3 / 4, device.displayWidth / 2, device.displayHeight / 4, 30)
+                device.waitForIdle()
+            }
+            val vault = device.wait(Until.findObject(By.textContains("Private Vault")), 15_000)
             assertNotNull("Vault entry missing", vault); vault.click()
             assertTrue(device.wait(Until.hasObject(By.text("A private place.")), 15_000))
             scenario.onActivity { activity -> assertTrue("Vault window allows screenshots", activity.window.attributes.flags and WindowManager.LayoutParams.FLAG_SECURE != 0) }

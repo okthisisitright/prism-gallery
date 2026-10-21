@@ -49,11 +49,11 @@ Use JDK **17**, Android SDK command-line tools, platform `platforms;android-37.0
 sdkmanager 'platforms;android-37.0' 'build-tools;36.0.0' 'platform-tools'
 # Set ANDROID_HOME or create local.properties with sdk.dir for your machine.
 ./gradlew :app:testDebugUnitTest :app:lintDebug :app:assembleDebug :app:assembleDebugAndroidTest
-# With an API 26+ emulator/device (CI uses API 35):
+# With a clean emulator (CI uses API 35; scanner integration needs API 33+):
 ./gradlew :app:connectedDebugAndroidTest
 ```
 
-No signing credentials are required for debug builds. Local checks and actual results are recorded in [VALIDATION.md](docs/VALIDATION.md). Hardware functions must still be checked on your device; no Vivo, physical biometric sensor or frame-rate claim is implied by an emulator run.
+Run instrumentation on a clean emulator: the scanner test grants photo access and creates/deletes only its own fixture image. Android revocation kills the instrumented process, so that test does not revoke the granted permission. No signing credentials are required for debug builds. Local checks and actual results are recorded in [VALIDATION.md](docs/VALIDATION.md). Hardware functions must still be checked on your device; no Vivo, physical biometric sensor or frame-rate claim is implied by an emulator run.
 
 [CI](.github/workflows/android-build.yml) runs JVM tests, Android lint, debug packaging, test APK compilation and an API 35 emulator instrumentation job on push/PR/manual dispatch. Reports are uploaded separately. The instrumentation suite covers Room category persistence/multi-membership and a real Keystore-backed vault import/unlock/tamper/relock path. JVM tests cover geometry, identity, filters, KDF/AEAD and the import transaction used by production.
 
