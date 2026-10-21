@@ -8,6 +8,8 @@ A native, offline Android gallery in Kotlin and Jetpack Compose. Package `com.pr
 
 Open [Android build runs](https://github.com/okthisisitright/prism-gallery/actions/workflows/android-build.yml), select a successful run for `main`, and download **Prism-Gallery-debug-apk** under Artifacts. Unzip and install `Prism-Gallery-debug.apk` on your Android device. GitHub may require sign-in to download Actions artifacts. Allow installation from your chosen file manager/browser when Android asks. A debug APK is signed with a development key and is not a Play Store release. CI can use a different debug key from a local build; switching signatures requires uninstalling, which **destroys vault access**. Never uninstall a vault containing the only copies of your photos.
 
+Verified first-release build: [successful CI run](https://github.com/okthisisitright/prism-gallery/actions/runs/39668972890) · [APK artifact](https://github.com/okthisisitright/prism-gallery/actions/runs/39668972890/artifacts/12377844485). 25 JVM tests and 6 Android tests passed; lint and packaging passed.
+
 Local output after building: `app/build/outputs/apk/debug/app-debug.apk`. The CI artifact exists only after its build job succeeds; no release-download URL is assumed.
 
 ## What is built

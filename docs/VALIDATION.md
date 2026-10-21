@@ -1,33 +1,44 @@
 # Verification record
 
-Run date: 2026-10-21. This record reports executed checks separately from intended acceptance checks.
+Run date: 2026-10-21. Tested implementation: `59266fd`. Final documentation-only commits do not change the APK source.
+
+## Successful CI evidence
+
+[Android build run 39668972890](https://github.com/okthisisitright/prism-gallery/actions/runs/39668972890) is **successful**, with both build and API 35 emulator jobs green. The successful device job is the retry after a corrupt Android SDK emulator ZIP failed during setup; that download failure did not execute tests.
+
+- **25 JVM tests passed**, 0 failures/errors: 13 media/geometry/identity/filter tests and 12 vault cipher/import-transaction tests. Production uses the tested `VerifiedImport` transaction helper.
+- **6 Android instrumentation tests passed**, 0 failures: real MediaStore scanning, category metadata, multi-membership/cleanup, Keystore-backed vault import/unlock/tamper/relock and sensitive-bitmap clearing, rejected video import without source deletion, and the actual activity/UI smoke flow.
+- **Android lint passed with 0 errors**. The final workspace report contains 22 warnings: dependency update notices, KTX/style suggestions, intentional synchronous persistence of retry throttling on IO, resource-folder convention and release resource-shrinking advice. No lint baseline or blanket suppression was added.
+- `assembleDebug` and `assembleDebugAndroidTest` passed. The APK is development-signed; release signing is deliberately not configured.
+
+Download the real [Prism-Gallery-debug-apk artifact](https://github.com/okthisisitright/prism-gallery/actions/runs/39668972890/artifacts/12377844485). The [device-test-reports artifact](https://github.com/okthisisitright/prism-gallery/actions/runs/39668972890/artifacts/12379925509) contains reports, raw results, device logs and `ui-screenshots.tar` with public Albums light/dark captures. GitHub may require sign-in. Artifact retention follows GitHub's settings; these are not permanent release URLs.
+
+## What the Android tests establish
+
+The scanner test grants image access on a clean AVD, inserts and publishes a unique test-owned PNG through MediaStore, finds it through the production scanner, opens/decodes its returned volume URI, and verifies stable identity across a second scan. It deletes only that fixture. Permission revocation is not attempted inside instrumentation because Android can kill the instrumented process.
+
+The vault tests use actual Android Keystore wrapping and platform AES-GCM. They verify a real image import, retained source bytes, wrong-passphrase rejection, successful re-unlock, authenticated corruption rejection, lock state, clearing of a mutable protected bitmap copied from immutable input, and explicit video-import rejection. Room tests establish duplicate prevention, multiple categories per media key, persisted metadata, and cascading only category membership while favorites survive.
+
+The UI test launches the real activity, creates and observes a Room-backed category, changes theme through DataStore, captures public UI screenshots, navigates the scrollable Albums page to Private Vault, and checks FLAG_SECURE on its window. This is smoke coverage; it does not establish that every gesture or device security behavior is correct. Screenshots were captured by CI; they were not visually inspected in this workspace because artifact-blob downloads were denied here.
 
 ## Executed in the workspace
 
-- Empty target repository cloned and inspected; no existing implementation or local AGENTS.md was present.
-- Android SDK platform 37.0 / Build Tools 36.0.0, full Temurin JDK 17 and Gradle 9.6.0 installed for the build.
-- `:app:assembleDebug`: **passed**, produced the installable development-signed `app/build/outputs/apk/debug/app-debug.apk` (approximately 25 MiB).
-- `:app:assembleDebugAndroidTest`: **passed**, compiled/packaged instrumentation tests.
-- `:app:testDebugUnitTest`: **25 passed, 0 failures, 0 errors**. 13 media/geometry/identity/filter tests and 12 vault cipher/import-transaction tests. Production uses the tested `VerifiedImport` transaction helper.
-- `:app:lintDebug`: **passed with 0 errors and 21 warnings** in the initial complete run. Warnings are dependency update notices, URI/KTX style suggestions, deliberate synchronous persistence of retry throttling on IO, resource-folder convention and release resource-shrinking advice. No lint baseline or blanket suppression was added.
-- App and instrumentation sources compile against the pinned stable dependency graph, including Backdrop 2.0.1 APIs.
-- Merged manifest inspected: **no INTERNET permission**; backup disabled. The transitive ACCESS_NETWORK_STATE permission was explicitly removed in the final source.
+The target repository was empty. No existing implementation or AGENTS.md was present. Android SDK platform 37.0 / Build Tools 36.0.0, full Temurin JDK 17 and Gradle 9.6.0 were installed.
 
-The complete build/test/lint/package set was rerun successfully after the final implementation fixes (transactional category creation, legacy write permission request, forced-theme system bars and removal of transitive network-state permission). A concurrent emulator/build attempt hit the workspace memory ceiling and was stopped; the isolated rerun passed. Instrumentation compilation includes a real activity/UI smoke test for category creation, light/dark screenshots and FLAG_SECURE on vault entry.
+The complete JVM-test/lint/app-package/test-package set passed locally after the final implementation changes. Instrumentation test compilation also passed after the final scanner/UI test corrections. `apksigner verify` passed for the local APK. The merged manifest has **no INTERNET or ACCESS_NETWORK_STATE permission**, and backup/device-transfer extraction is disabled across app-data domains.
 
-## Device checks
+Local delivered APK: `/workspace/artifacts/Prism-Gallery-debug.apk` (approximately 25 MiB). SHA-256:
 
-An API 35 x86_64 Google APIs emulator was provisioned in the workspace with software CPU emulation because `/dev/kvm` is unavailable. The software-emulation attempt was stopped during boot after exhausting memory headroom alongside the compiler. Local instrumentation and UI screenshots were not completed. Compiling instrumentation tests does not establish that they ran. The workflow additionally runs the instrumentation suite on a KVM-backed API 35 GitHub runner; consult the actual run result.
+```
+7ebac33a2afd1852dbff241fe53282dcee83faf3ac54eaf7a86dbc04bbd0052e
+```
 
-Not yet verified on physical hardware: Vivo/Funtouch OS, biometric hardware and enrollment invalidation, device lock-screen removal, low-storage/power-loss behavior, large-library frame times, all EXIF/codec combinations, Android 8/9 mutation behavior, Android 14/15 partial-access/revocation UX, public SAF providers, share recipient behavior and the full gesture acceptance matrix. No hardware FPS or absolute-security claim is made.
+The CI APK uses a different development signing identity and therefore has different bytes. Never uninstall an app containing the only vault copies merely to switch debug signing keys.
 
-## Manual acceptance checklist for a device
+An API 35 software emulator was also attempted locally. Without `/dev/kvm`, startup was too slow; a concurrent compiler/emulator attempt exhausted memory headroom. That emulator was stopped. Local device/UI tests are **not** claimed; the executed device evidence above comes from GitHub's KVM-backed runner.
 
-- Grant image/video full access; then partial access; reselect; revoke while backgrounded; confirm stale inaccessible media is removed and no operation reports success on failure.
-- Verify panorama, tall, square, EXIF-rotated and older encodings fit inside the viewer without stretching/cropping; test pinch/pan/double-tap/page/downward dismissal.
-- Play, pause and seek supported video; rotate and background; confirm focus and player release.
-- Create/rename/reorder/pin/hide/change cover/delete categories. Add one image to two categories, remove from one, restart. Confirm originals remain and inaccessible members are not counted or reassociated.
-- Verify a vault import with Keep original, canceled source deletion, approved source deletion, interrupted import and insufficient storage. Ensure public-original warnings are accurate.
-- Verify passphrase fallback, wrong credentials/throttling, biometric cancellation/enrollment invalidation, background, screen-off, idle lock, manual lock and screenshot blocking.
-- Restore only after explicit consent; check public destination and retained encrypted copy. Delete only the vault copy after confirmation.
-- Confirm no vault material appears in ordinary Photos/Albums/Explore, public thumbnails or backups, and that airplane-mode operations work.
+## Still needs physical-device acceptance
+
+Unverified: Vivo/Funtouch OS; physical biometric enrollment/cancellation/key invalidation; device lock-screen removal; full and selected-photo/reselection/revocation UX; screen-off/idle timing on OEM devices; recents/recording blocking behavior beyond the window flag; low storage/power loss; very large libraries and frame times; actual public video codecs/play/seek; full EXIF/odd-image/pinch/pan/paging/rotation combinations; Android 8/9 mutations; SAF provider behavior; share recipients and interrupted public copies/exports. No hardware FPS or absolute-security claim is made.
+
+On a device, check full/partial/denied access and revocation, odd image geometry, video controls/focus, multi-category operations without original deletion, source-removal acceptance/cancellation, all vault lock paths and biometric fallback, consented public restore, and airplane-mode operation. Check destinations after interrupted public operations; those operations are not journaled across abrupt process death. See README and SECURITY.md for deliberately unsupported features.
