@@ -13,11 +13,11 @@ Run date: 2026-10-21. This record reports executed checks separately from intend
 - App and instrumentation sources compile against the pinned stable dependency graph, including Backdrop 2.0.1 APIs.
 - Merged manifest inspected: **no INTERNET permission**; backup disabled. The transitive ACCESS_NETWORK_STATE permission was explicitly removed in the final source.
 
-Small final fixes (transactional category creation, legacy write permission request and forced-theme system bars) are followed by another complete build/test/lint/package run. Its results and runtime checks are updated as verification completes.
+The complete build/test/lint/package set was rerun successfully after the final implementation fixes (transactional category creation, legacy write permission request, forced-theme system bars and removal of transitive network-state permission). A concurrent emulator/build attempt hit the workspace memory ceiling and was stopped; the isolated rerun passed. Instrumentation compilation includes a real activity/UI smoke test for category creation, light/dark screenshots and FLAG_SECURE on vault entry.
 
 ## Device checks
 
-An API 35 x86_64 Google APIs emulator was provisioned in the workspace with software CPU emulation because `/dev/kvm` is unavailable. Device boot, instrumentation execution and UI screenshots are pending. Compiling instrumentation tests does not establish that they ran. The workflow additionally runs the instrumentation suite on a KVM-backed API 35 GitHub runner; consult the actual run result.
+An API 35 x86_64 Google APIs emulator was provisioned in the workspace with software CPU emulation because `/dev/kvm` is unavailable. The software-emulation attempt was stopped during boot after exhausting memory headroom alongside the compiler. Local instrumentation and UI screenshots were not completed. Compiling instrumentation tests does not establish that they ran. The workflow additionally runs the instrumentation suite on a KVM-backed API 35 GitHub runner; consult the actual run result.
 
 Not yet verified on physical hardware: Vivo/Funtouch OS, biometric hardware and enrollment invalidation, device lock-screen removal, low-storage/power-loss behavior, large-library frame times, all EXIF/codec combinations, Android 8/9 mutation behavior, Android 14/15 partial-access/revocation UX, public SAF providers, share recipient behavior and the full gesture acceptance matrix. No hardware FPS or absolute-security claim is made.
 
